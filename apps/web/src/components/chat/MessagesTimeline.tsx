@@ -141,7 +141,7 @@ function timelineListStateFor(identity: string): {
     rememberedPosition,
     workGroupViewState: rememberedPosition?.disclosures?.workGroupState ?? {
       scrollPositions: new Map(),
-      expandedEntries: new Set(),
+      entryExpansion: new Map(),
     },
   };
 }
@@ -404,8 +404,8 @@ const ConversationTimeline = memo(function ConversationTimeline({
   const [expandedRunIds, setExpandedRunIds] = useState<ReadonlySet<RunId>>(
     () => listState.rememberedPosition?.disclosures?.runs ?? new Set(),
   );
-  const [expandedWorkGroupIds, setExpandedWorkGroupIds] = useState<ReadonlySet<string>>(
-    () => listState.rememberedPosition?.disclosures?.workGroups ?? new Set(),
+  const [workGroupExpansion, setWorkGroupExpansion] = useState<ReadonlyMap<string, boolean>>(
+    () => listState.rememberedPosition?.disclosures?.workGroups ?? new Map(),
   );
   const [expandedAttemptIds, setExpandedAttemptIds] = useState<ReadonlySet<RunAttemptId>>(
     () => listState.rememberedPosition?.disclosures?.attempts ?? new Set(),
@@ -423,7 +423,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   );
   const [fullscreenAppRowId, setFullscreenAppRowId] = useState<string | null>(null);
   let paintedExpandedRunIds = expandedRunIds;
-  let paintedExpandedWorkGroupIds = expandedWorkGroupIds;
+  let paintedWorkGroupExpansion = workGroupExpansion;
   let paintedExpandedAttemptIds = expandedAttemptIds;
   const identityChanged = listState.identity !== listIdentityKey;
   const { rememberedPosition, workGroupViewState } = identityChanged
@@ -443,10 +443,10 @@ const ConversationTimeline = memo(function ConversationTimeline({
     // nor when that thread comes back.
     setFullscreenAppRowId(null);
     paintedExpandedRunIds = rememberedPosition?.disclosures?.runs ?? new Set();
-    paintedExpandedWorkGroupIds = rememberedPosition?.disclosures?.workGroups ?? new Set();
+    paintedWorkGroupExpansion = rememberedPosition?.disclosures?.workGroups ?? new Map();
     paintedExpandedAttemptIds = rememberedPosition?.disclosures?.attempts ?? new Set();
     setExpandedRunIds(paintedExpandedRunIds);
-    setExpandedWorkGroupIds(paintedExpandedWorkGroupIds);
+    setWorkGroupExpansion(paintedWorkGroupExpansion);
     setExpandedAttemptIds(paintedExpandedAttemptIds);
   }
   const citationThreadRef = parseScopedThreadKey(routeThreadKey);
@@ -513,14 +513,11 @@ const ConversationTimeline = memo(function ConversationTimeline({
   };
   const onToggleWorkGroup = (groupId: string, anchorKey: string) => {
     suspendEndScrollMaintenanceForDisclosure(anchorKey);
-    setExpandedWorkGroupIds((existing) => {
-      const next = new Set(existing);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
-      }
-      return next;
+    const expanded = rows.some(
+      (row) => "groupId" in row && row.groupId === groupId && row.expanded,
+    );
+    setWorkGroupExpansion((existing) => {
+      return new Map(existing).set(groupId, !expanded);
     });
   };
   const onToggleAttemptFold = (attemptId: RunAttemptId) => {
@@ -672,7 +669,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
     runningRunId,
     expandedRunIds: visibleExpandedRunIds,
     expandedAttemptIds: visibleExpandedAttemptIds,
-    expandedWorkGroupIds,
+    workGroupExpansion: paintedWorkGroupExpansion,
     isWorking,
     runlessWorkActive,
     activeTurnStartedAt,
@@ -913,7 +910,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
           atEnd: isAtEnd,
           disclosures: {
             runs: paintedExpandedRunIds,
-            workGroups: paintedExpandedWorkGroupIds,
+            workGroups: paintedWorkGroupExpansion,
             attempts: paintedExpandedAttemptIds,
             workGroupState: workGroupViewState,
           },

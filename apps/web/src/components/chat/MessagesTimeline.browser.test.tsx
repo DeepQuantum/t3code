@@ -997,6 +997,49 @@ it("renders automatic compaction as one live divider that finishes with its reas
   expect(container.textContent).not.toContain("Compacting before");
 });
 
+it("opens tool details automatically and preserves manual collapse across group remounts", async () => {
+  setup();
+  const runId = RunId.make("expanded-tools");
+  const entry: Entry = {
+    id: "command-entry",
+    kind: "work",
+    createdAt: CREATED_AT,
+    entry: {
+      id: "command",
+      runId,
+      createdAt: CREATED_AT,
+      label: "Ran command",
+      command: "printf hello",
+      detail: "Automatically visible output",
+      tone: "tool",
+      itemType: "command_execution",
+      toolLifecycleStatus: "inProgress",
+    },
+  };
+  const props = { ...baseProps(), isWorking: true, runningRunId: runId };
+  const ui = (entries: Entry[]) => <MessagesTimeline {...props} timelineEntries={entries} />;
+  await using screen = await renderElement(ui([entry]));
+  const group = screen.getByRole("region", { name: "Tool calls" });
+  const tool = group.getByRole("button", { name: "printf hello", exact: true });
+  await expect.element(tool).toHaveAttribute("aria-expanded", "true");
+  await expect
+    .element(screen.getByText("Automatically visible output", { exact: true }))
+    .toBeVisible();
+  await tool.getByText("printf hello", { exact: true }).click();
+  await expect.element(tool).toHaveAttribute("aria-expanded", "false");
+  const groupToggle = screen.getByRole("button", { name: "Running printf", exact: true });
+  await groupToggle.click();
+  await expect.element(group).not.toBeInTheDocument();
+  await groupToggle.click();
+  await expect.element(tool).toHaveAttribute("aria-expanded", "false");
+  await tool.click();
+  await expect.element(tool).toHaveAttribute("aria-expanded", "true");
+  await screen.rerender(
+    ui([{ ...entry, entry: { ...entry.entry, toolLifecycleStatus: "completed" } }]),
+  );
+  await expect.element(tool).toHaveAttribute("aria-expanded", "true");
+});
+
 it("keeps concurrent approvals actionable outside collapsed work and restores settled rows", async () => {
   setup();
   const fixture = makeStreamingTimelineFixture();
@@ -1157,7 +1200,6 @@ it("keeps concurrent approvals actionable outside collapsed work and restores se
     .element(screen.getByRole("group", { name: "Command approval" }))
     .not.toBeInTheDocument();
   await vi.waitFor(() => expect(screen.text()).not.toContain("Waiting for approval"));
-  await screen.getByRole("button", { expanded: false }).click();
   await expect
     .element(screen.getByRole("button", { name: approvals[0]!.detail!, exact: true }))
     .toBeVisible();

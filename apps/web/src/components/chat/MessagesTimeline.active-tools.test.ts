@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { deriveMessagesTimelineRows, liveWorkEntryLabel } from "./MessagesTimeline.logic";
 
 describe("long active tool groups", () => {
-  it.each([false, true])(
+  it.each([undefined, false, true])(
     "preserves chronological order and the latest activity, expanded=%s",
     (expanded) => {
       const runId = RunId.make("long-active-run");
@@ -30,7 +30,9 @@ describe("long active tool groups", () => {
         activeTurnStartedAt: createdAt,
         turnDiffSummaries: [],
         supportsConversationRollback: false,
-        expandedWorkGroupIds: new Set(expanded ? ["work-group:work-entry-0"] : []),
+        ...(expanded === undefined
+          ? {}
+          : { workGroupExpansion: new Map([["work-group:work-entry-0", expanded]]) }),
       });
       const live = rows.find((row) => row.kind === "work-live");
       expect(live).toBeDefined();
@@ -42,8 +44,8 @@ describe("long active tool groups", () => {
       );
       expect(live?.groupId).toBe("work-group:work-entry-0");
       const details = rows.filter((row) => row.kind === "work");
-      expect(details).toHaveLength(expanded ? 1 : 0);
-      if (expanded) {
+      expect(details).toHaveLength(expanded !== false ? 1 : 0);
+      if (expanded !== false) {
         expect(details[0]?.groupedEntries).toEqual(live?.groupedEntries);
       }
     },

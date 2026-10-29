@@ -217,7 +217,9 @@ function ExpandedWorkGroupEntries({
   const updateExpandedContentHeight = () => {
     const state = listRef.current?.getState();
     let height = 0;
-    for (const entryId of viewState.expandedEntries) {
+    for (const entry of entries) {
+      if (!(viewState.entryExpansion.get(entry.id) ?? entry.tone === "tool")) continue;
+      const entryId = entry.id;
       if (state?.indexByKey(entryId) === undefined) continue;
       height += Math.max(
         0,

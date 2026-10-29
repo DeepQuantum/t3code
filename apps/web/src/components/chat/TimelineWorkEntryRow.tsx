@@ -184,18 +184,18 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       ? notificationChildThreadId(workEntry.projectedItem.item.source)
       : undefined;
   const groupView = use(WorkGroupViewCtx);
+  const viewState = groupView?.state ?? ctx.workGroupViewState;
   const [expanded, setExpanded] = useState(
-    () => groupView?.state.expandedEntries.has(workEntry.id) ?? false,
+    () => viewState.entryExpansion.get(workEntry.id) ?? workEntry.tone === "tool",
   );
   const toggleExpanded = () => {
     const next = !expanded;
     if (groupView) {
       groupView.onToggleEntry(!next);
-      if (next) groupView.state.expandedEntries.add(workEntry.id);
-      else groupView.state.expandedEntries.delete(workEntry.id);
     } else {
       props.onToggleEntry?.(!next);
     }
+    viewState.entryExpansion.set(workEntry.id, next);
     setExpanded(next);
   };
   const failureItem = workEntry.projectedItem?.item;

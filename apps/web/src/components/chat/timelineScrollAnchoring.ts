@@ -98,11 +98,11 @@ export interface RememberedTimelinePosition {
   readonly atEnd: boolean;
   readonly disclosures?: {
     readonly runs: ReadonlySet<RunId>;
-    readonly workGroups: ReadonlySet<string>;
+    readonly workGroups: ReadonlyMap<string, boolean>;
     readonly attempts: ReadonlySet<RunAttemptId>;
     readonly workGroupState: {
       scrollPositions: Map<string, { readonly entryId: string; readonly offset: number }>;
-      expandedEntries: Set<string>;
+      entryExpansion: Map<string, boolean>;
     };
   };
 }

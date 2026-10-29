@@ -115,7 +115,7 @@ export const TimelineRowActivityCtx = createContext<TimelineRowActivityState>(nu
 
 export interface WorkGroupViewState {
   scrollPositions: Map<string, WorkGroupScrollAnchor>;
-  expandedEntries: Set<string>;
+  entryExpansion: Map<string, boolean>;
 }
 
 export const WorkGroupViewCtx = createContext<{
