@@ -104,3 +104,14 @@ export const AUTH_SCOPE_OPTIONS: ReadonlyArray<{
     description: "Change managed tunnel connectivity.",
   },
 ];
+
+/** Shown instead of the granted scopes while they are unknown, so every surface says the same thing. */
+export function sessionPermissionsUnavailableMessage(input: {
+  readonly connected: boolean;
+  readonly failed: boolean;
+}): string {
+  if (!input.connected) return "Connect to this environment to view this session’s permissions.";
+  return input.failed
+    ? "Could not verify your permissions. Retrying automatically."
+    : "Checking permissions…";
+}
