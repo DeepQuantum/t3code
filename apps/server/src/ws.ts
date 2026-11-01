@@ -200,6 +200,7 @@ import {
 } from "./attachmentStore.ts";
 import { parseBase64DataUrl } from "./imageMime.ts";
 import { deletePendingAttachment, issueAttachmentUploadUrl } from "./assets/AttachmentUpload.ts";
+import * as LocalModels from "./localModels/LocalModels.ts";
 import * as PortScanner from "./preview/PortScanner.ts";
 import * as WorkspaceEntries from "./workspace/WorkspaceEntries.ts";
 import * as KnownWorkspaces from "./workspace/KnownWorkspaces.ts";
@@ -1349,6 +1350,7 @@ export const layerWsRpc = (
       const terminalManager = yield* TerminalManager.TerminalManager;
       const previewManager = yield* PreviewManager.PreviewManager;
       const portDiscovery = yield* PortScanner.PortDiscovery;
+      const localModels = yield* LocalModels.LocalModels;
       const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
       const modelManifest = yield* ModelManifest.ModelManifest;
       const providerLatestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
@@ -3092,6 +3094,15 @@ export const layerWsRpc = (
         [WS_METHODS.deviceAction]: (input) => deviceService.action(input),
         [WS_METHODS.subscribeDeviceState]: (_input) => DeviceService.stateStream(deviceService),
         [WS_METHODS.previewStopLocalServer]: (input) => portDiscovery.stopServer(input),
+        [WS_METHODS.localModelsList]: (_input) => localModels.list,
+        [WS_METHODS.localModelsSave]: (input) =>
+          localModels.save(input.profile).pipe(Effect.map((profile) => ({ profile }))),
+        [WS_METHODS.localModelsRemove]: (input) =>
+          localModels.remove(input.profileId).pipe(Effect.as({})),
+        [WS_METHODS.localModelsStart]: (input) => localModels.start(input.profileId),
+        [WS_METHODS.localModelsStop]: (input) => localModels.stop(input.profileId),
+        [WS_METHODS.subscribeLocalModelStatus]: (input) =>
+          localModels.statusStream(input.profileId),
         [WS_METHODS.subscribeDiscoveredLocalServers]: (input) =>
           Stream.callback<DiscoveredLocalServerList>((queue) =>
             Effect.gen(function* () {

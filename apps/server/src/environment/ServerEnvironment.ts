@@ -262,6 +262,7 @@ export const make = Effect.gen(function* () {
       serverResolvedCommandContext: true,
       threadStop: true,
       ...(hostPlatform === "win32" ? {} : { localServerStop: true }),
+      localModels: true,
       environmentIcon: true,
       projectCloneTracking: true,
       projectOrganization: true,

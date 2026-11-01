@@ -287,6 +287,15 @@ import {
   PreviewSessionSnapshot,
 } from "./preview.ts";
 import {
+  LocalModelStatus,
+  LocalModelsError,
+  LocalModelsListResult,
+  LocalModelsProfileRefInput,
+  LocalModelsRemoveResult,
+  LocalModelsSaveInput,
+  LocalModelProfile,
+} from "./localModels.ts";
+import {
   DeviceActionInput,
   DeviceCloseInput,
   DeviceConfigureInput,
@@ -482,6 +491,11 @@ export const WS_METHODS = {
   previewReportProfiles: "preview.reportProfiles",
   previewReportStatus: "preview.reportStatus",
   previewStopLocalServer: "preview.stopLocalServer",
+  localModelsList: "localModels.list",
+  localModelsSave: "localModels.save",
+  localModelsRemove: "localModels.remove",
+  localModelsStart: "localModels.start",
+  localModelsStop: "localModels.stop",
 
   deviceConfigure: "device.configure",
   deviceList: "device.list",
@@ -605,6 +619,7 @@ export const WS_METHODS = {
   subscribeTerminalMetadata: "subscribeTerminalMetadata",
   subscribePreviewEvents: "subscribePreviewEvents",
   subscribeDiscoveredLocalServers: "subscribeDiscoveredLocalServers",
+  subscribeLocalModelStatus: "subscribeLocalModelStatus",
   subscribeDeviceState: "subscribeDeviceState",
   subscribeServerConfig: "subscribeServerConfig",
   subscribeServerLifecycle: "subscribeServerLifecycle",
@@ -1636,6 +1651,43 @@ const WsPreviewStopLocalServerRpc = Rpc.make(WS_METHODS.previewStopLocalServer, 
   error: Schema.Union([PreviewStopLocalServerError, EnvironmentAuthorizationError]),
 });
 
+const WsLocalModelsListRpc = Rpc.make(WS_METHODS.localModelsList, {
+  payload: Schema.Struct({}),
+  success: LocalModelsListResult,
+  error: Schema.Union([LocalModelsError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalModelsSaveRpc = Rpc.make(WS_METHODS.localModelsSave, {
+  payload: LocalModelsSaveInput,
+  success: Schema.Struct({ profile: LocalModelProfile }),
+  error: Schema.Union([LocalModelsError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalModelsRemoveRpc = Rpc.make(WS_METHODS.localModelsRemove, {
+  payload: LocalModelsProfileRefInput,
+  success: LocalModelsRemoveResult,
+  error: Schema.Union([LocalModelsError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalModelsStartRpc = Rpc.make(WS_METHODS.localModelsStart, {
+  payload: LocalModelsProfileRefInput,
+  success: LocalModelStatus,
+  error: Schema.Union([LocalModelsError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalModelsStopRpc = Rpc.make(WS_METHODS.localModelsStop, {
+  payload: LocalModelsProfileRefInput,
+  success: LocalModelStatus,
+  error: Schema.Union([LocalModelsError, EnvironmentAuthorizationError]),
+});
+
+const WsSubscribeLocalModelStatusRpc = Rpc.make(WS_METHODS.subscribeLocalModelStatus, {
+  payload: LocalModelsProfileRefInput,
+  success: LocalModelStatus,
+  error: Schema.Union([LocalModelsError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
 const WsSubscribeDiscoveredLocalServersRpc = Rpc.make(WS_METHODS.subscribeDiscoveredLocalServers, {
   payload: Schema.Struct({
     configuredUrls: Schema.optional(ConfiguredLocalServerUrls),
@@ -2143,6 +2195,12 @@ export const WsRpcGroup = RpcGroup.make(
   WsPreviewReportStatusRpc,
   WsSubscribePreviewEventsRpc,
   WsPreviewStopLocalServerRpc,
+  WsLocalModelsListRpc,
+  WsLocalModelsSaveRpc,
+  WsLocalModelsRemoveRpc,
+  WsLocalModelsStartRpc,
+  WsLocalModelsStopRpc,
+  WsSubscribeLocalModelStatusRpc,
   WsSubscribeDiscoveredLocalServersRpc,
   WsDeviceConfigureRpc,
   WsDeviceListRpc,

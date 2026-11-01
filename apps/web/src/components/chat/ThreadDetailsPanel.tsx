@@ -22,6 +22,7 @@ import { OpenInPicker } from "./OpenInPicker";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
+import { ThreadLocalModelPanel } from "./ThreadLocalModelPanel";
 import { ThreadServersPanel } from "./ThreadServersPanel";
 import {
   ThreadDetailsContext,
@@ -84,6 +85,7 @@ interface ThreadDetailsPanelProps extends Pick<
   ) => Promise<ProjectScriptActionResult>;
   onDeleteProjectScript: (scriptId: string) => Promise<ProjectScriptActionResult>;
   usage: ThreadDetailsUsageInput;
+  modelSlug?: string | null | undefined;
 }
 
 export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
@@ -236,6 +238,13 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                     ) : null}
                   </div>
                 </ThreadDetailsSection>
+              ) : null}
+
+              {density === "full" ? (
+                <ThreadLocalModelPanel
+                  environmentId={props.environmentId}
+                  modelSlug={props.modelSlug}
+                />
               ) : null}
 
               {density === "full" && !props.draftId && visible.servers ? (

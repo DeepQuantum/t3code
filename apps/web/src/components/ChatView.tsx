@@ -3829,6 +3829,7 @@ export default function ChatView(props: ChatViewProps) {
                   forceNewWorktree={multipleModelSelections !== null}
                   environmentId={activeThread.environmentId}
                   threadId={activeThread.id}
+                  modelSlug={(composerSelectedModelSelection ?? activeThread.modelSelection).model}
                   projectId={activeThread.projectId}
                   worktreePath={activeThread.worktreePath}
                   isServerThread={isServerThread}
