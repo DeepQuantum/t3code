@@ -13,7 +13,14 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import type { LegendListRef } from "@legendapp/list/react";
-import { createRef, Profiler, StrictMode, type ComponentProps, type ReactElement } from "react";
+import {
+  createRef,
+  Profiler,
+  StrictMode,
+  useState,
+  type ComponentProps,
+  type ReactElement,
+} from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import "~/index.css";
@@ -32,6 +39,7 @@ import { toastManager } from "../ui/toast";
 import type { CitedHistory } from "./citationProcedure";
 import type { TimelineNavigation } from "./timelineViewport";
 import { rememberTimelinePosition } from "./timelineScrollAnchoring";
+import { useTimelineFollow } from "./useTimelineFollow";
 
 const environmentQuery = vi.hoisted(() => ({
   error: "Pull request not found",
@@ -160,6 +168,89 @@ const TASK_ID = ScheduledTaskId.make("task-1");
 const AUTOMATION_PROMPT = "Triage the inbox\n\nLabel every new issue and close duplicates.";
 
 describe("MessagesTimeline messages", () => {
+  it.each(["focus", "visibilitychange"])(
+    "catches up on %s after background layout drift, but preserves deliberate history reading",
+    async (returnEvent) => {
+      setup();
+      const props = baseProps();
+      const entries = Array.from({ length: 30 }, (_, index) =>
+        message("Conversation history. ".repeat(40), { role: "assistant" }, `return-${index}`),
+      );
+      function FollowingTimeline() {
+        const [anchor, setAnchor] = useState<{
+          threadKey: string | null;
+          messageId: MessageId | null;
+        }>({
+          threadKey: props.routeThreadKey,
+          messageId: null,
+        });
+        const follow = useTimelineFollow({
+          legendListRef: props.listRef,
+          composerTimelineInset: 0,
+          routeThreadKey: props.routeThreadKey,
+          activeThreadKey: props.routeThreadKey,
+          isServerThread: false,
+          serverProjection: null,
+          threadStatus: "live",
+          activeActivityRun: null,
+          activeRunningTurnId: null,
+          timelineEntries: entries,
+          timelineAnchorMessageId: anchor.messageId,
+          setTimelineAnchor: setAnchor,
+        });
+        return (
+          <MessagesTimeline
+            {...props}
+            timelineEntries={entries}
+            liveFollowEnabled={follow.timelineLiveFollowEnabled}
+            onViewportAttach={follow.attachTimelineViewport}
+            onIsAtEndChange={follow.onIsAtEndChangeStable}
+          />
+        );
+      }
+      await using screen = await renderElement(<FollowingTimeline />);
+      using visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+      await vi.waitFor(() =>
+        expect(props.listRef.current?.getScrollableNode()?.scrollTop).toBeGreaterThan(1000),
+      );
+      const viewport = props.listRef.current!.getScrollableNode()!;
+      const returnToWindow = () => {
+        visibility.mockReturnValue("visible");
+        (returnEvent === "focus" ? window : document).dispatchEvent(new Event(returnEvent));
+      };
+      await act(() => {
+        visibility.mockReturnValue("hidden");
+        document.dispatchEvent(new Event("visibilitychange"));
+        viewport.scrollTop = 500;
+        viewport.dispatchEvent(new Event("scroll"));
+      });
+      await act(returnToWindow);
+      await vi.waitFor(() =>
+        expect(
+          viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop,
+        ).toBeLessThanOrEqual(1),
+      );
+
+      await act(() => {
+        viewport.dispatchEvent(new WheelEvent("wheel", { deltaY: -300, bubbles: true }));
+        viewport.scrollTop = 500;
+        viewport.dispatchEvent(new Event("scroll"));
+      });
+      await vi.waitFor(() => expect(viewport.scrollTop).toBe(500));
+      using scrollToEnd = vi.spyOn(props.listRef.current!, "scrollToEnd");
+      await act(() => {
+        visibility.mockReturnValue("hidden");
+        document.dispatchEvent(new Event("visibilitychange"));
+        returnToWindow();
+      });
+      expect(scrollToEnd).not.toHaveBeenCalled();
+      expect(viewport.scrollTop).toBe(500);
+      await screen.unmount();
+      await act(returnToWindow);
+      expect(scrollToEnd).not.toHaveBeenCalled();
+    },
+  );
+
   it("settles when equally long messages have very different rendered heights", async () => {
     const props = baseProps();
     const tall = message("a\n\n".repeat(6000), { role: "assistant" }, "tall");

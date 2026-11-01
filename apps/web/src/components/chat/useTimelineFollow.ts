@@ -1,4 +1,5 @@
 import { useStableCallback } from "../../hooks/useStableCallback";
+import { subscribeDocumentReturn } from "../../lib/documentActivity";
 import { type MessageId, type RunId } from "@t3tools/contracts";
 import { CHAT_LIST_ANCHOR_OFFSET } from "@t3tools/shared/chatList";
 import { Debouncer } from "@tanstack/react-pacer";
@@ -212,6 +213,7 @@ export function useTimelineFollow(input: TimelineFollowInput) {
   const readFollow = () => followStore.read(visit);
   // Async settles outlive their render; this reads the visit shown now.
   const readCurrentFollow = useStableCallback(readFollow);
+  const readCurrentVisit = useStableCallback(() => visit);
   const isTimelineAtLogicalEnd = () => {
     const current = readFollow();
     return (
@@ -323,6 +325,11 @@ export function useTimelineFollow(input: TimelineFollowInput) {
   };
   const onComposerPageScrollReleaseStable = useStableCallback(onComposerPageScrollRelease);
   const scrollToEnd = (animated: boolean = false) => {
+    const requestedList = legendListRef.current;
+    const cancelled = () =>
+      readCurrentVisit() !== visit ||
+      readCurrentFollow().mode !== "following" ||
+      legendListRef.current !== requestedList;
     // Stops a running position restore; follow itself is re-armed below.
     viewportRef.current?.navigate({ releasesFollow: false });
     followStore.dispatch(visit, { type: "followEnd" });
@@ -333,18 +340,12 @@ export function useTimelineFollow(input: TimelineFollowInput) {
     // list lands short of the real end.
     requestAnimationFrame(() => {
       const list = legendListRef.current;
-      if (!list) return;
+      if (!list || cancelled()) return;
       void Promise.resolve(
         list.scrollToEnd?.({
           animated: animated && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
         }),
-      ).then(() =>
-        settleListScroll(
-          list,
-          measuredEndOffset,
-          () => readCurrentFollow().mode !== "following" || legendListRef.current !== list,
-        ),
-      );
+      ).then(() => settleListScroll(list, measuredEndOffset, cancelled));
     });
   };
   const scrollToEndStable = useStableCallback(scrollToEnd);
@@ -374,6 +375,12 @@ export function useTimelineFollow(input: TimelineFollowInput) {
   const attachTimelineViewport = (viewport: TimelineViewport) => {
     viewportRef.current = viewport;
     const unsubscribe = viewport.subscribe(handleNavigationStable);
+    // Background throttling can leave the list behind even though follow is still armed.
+    const unsubscribeReturn = subscribeDocumentReturn(() => {
+      if (document.visibilityState === "visible" && readCurrentFollow().mode === "following") {
+        scrollToEndStable();
+      }
+    });
     const controller = createPageScrollController({
       getContainer: () => viewport.scrollNode,
       getScrollPaddingBottomPx: followStore.readComposerOverlayHeight,
@@ -382,6 +389,7 @@ export function useTimelineFollow(input: TimelineFollowInput) {
     pageScrollControllerRef.current = controller;
     return () => {
       unsubscribe();
+      unsubscribeReturn();
       controller.dispose();
       if (pageScrollControllerRef.current === controller) pageScrollControllerRef.current = null;
       if (viewportRef.current === viewport) viewportRef.current = null;

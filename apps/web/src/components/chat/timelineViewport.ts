@@ -120,7 +120,8 @@ export function attachTimelineViewport(scrollNode: HTMLElement): TimelineViewpor
       scrolledUp({
         top: scrollNode.scrollTop,
         height: scrollNode.scrollHeight,
-        programmatic: programmaticHolds > 0,
+        // Hidden layout changes are not user navigation; keep the baseline current for return.
+        programmatic: programmaticHolds > 0 || document.visibilityState !== "visible",
       }) &&
       // LegendList updates its scroll state on the next animation frame.
       resolveTimelineIsAtEnd({
