@@ -286,12 +286,14 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --color-sidebar-row-active: var(--sidebar-row-active);
   --color-sidebar-row-selected: var(--sidebar-row-selected);
   --color-sidebar-border: var(--contrast-sidebar-border);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-xs: var(--radius);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
+  --radius-4xl: var(--radius);
   @keyframes skeleton {
     /* The single loading-bar breath used by every skeleton: one opacity pulse
        per container, stepped so however many bars sit under it, the compositor
@@ -666,6 +668,14 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
 }
 
 @layer base {
+  /* Keep hard-coded radii, pill utilities, and inline styles square too. */
+  *,
+  *::before,
+  *::after,
+  ::-webkit-scrollbar-thumb {
+    border-radius: 0 !important;
+  }
+
   ::highlight(t3-assistant-citation) {
     background-color: color-mix(
       in oklab,
@@ -1112,7 +1122,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
 
 :root {
   color-scheme: light;
-  --radius: 0.5rem;
+  --radius: 0px;
   --background: var(--color-zinc-25);
   --app-chrome-background: var(--background);
   --toolbar-background: var(--app-chrome-background);
