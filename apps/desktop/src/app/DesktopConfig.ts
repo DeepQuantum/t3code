@@ -56,6 +56,7 @@ export const DesktopConfig = Config.all({
     Config.withDefault("http/json"),
   ),
   desktopLauncherPath: trimmedString("T3CODE_DESKTOP_LAUNCHER_PATH"),
+  backgroundImagesDirectory: trimmedString("T3CODE_BACKGROUND_IMAGES_DIR"),
   appImagePath: trimmedString("APPIMAGE"),
   disableAutoUpdate: Config.Boolean("T3CODE_DISABLE_AUTO_UPDATE").pipe(Config.withDefault(true)),
   mockUpdates: optionalBoolean("T3CODE_DESKTOP_MOCK_UPDATES"),

@@ -204,6 +204,9 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     ipcRenderer.invoke(IpcChannels.CANCEL_PROVIDER_AUTH_CALLBACK_CHANNEL, url),
   openExternal: (url: string) => ipcRenderer.invoke(IpcChannels.OPEN_EXTERNAL_CHANNEL, url),
   readMedia: (url: string) => ipcRenderer.invoke(IpcChannels.READ_MEDIA_CHANNEL, url),
+  listBackgroundImages: () => ipcRenderer.invoke(IpcChannels.LIST_BACKGROUND_IMAGES_CHANNEL),
+  readBackgroundImage: (name: string) =>
+    ipcRenderer.invoke(IpcChannels.READ_BACKGROUND_IMAGE_CHANNEL, name),
   checkSystemPermission: (pane: string) =>
     ipcRenderer.invoke(IpcChannels.CHECK_SYSTEM_PERMISSION_CHANNEL, pane),
   openSystemSettings: (pane: string) =>

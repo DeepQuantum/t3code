@@ -405,6 +405,48 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   }
 }
 
+#app-background {
+  --app-background-opacity: 20%;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--app-background-opacity);
+}
+
+#app-background > div {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  opacity: 0;
+  transition: opacity 3s ease-in-out;
+}
+
+#app-background > div[data-active] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app-background > div {
+    transition: none;
+  }
+}
+
+html[data-app-background] body {
+  background-color: transparent !important;
+}
+
+html[data-app-background]
+  :is(
+    [data-slot="sidebar-inset"],
+    [data-slot="sidebar-inset"] > .bg-background,
+    [data-chat-surface],
+    [data-chat-header]
+  ) {
+  background-color: transparent;
+}
+
 /* Paint find results without changing rendered markdown or copied text. */
 ::highlight(t3-thread-find) {
   color: var(--app-theme-search-match-foreground, oklch(0.216164 0.028283 77.423));
