@@ -5909,6 +5909,135 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     ),
   );
 
+  it.effect("moves only the commands the turn still waits on to the background", () =>
+    Effect.gen(function* () {
+      const idAllocator = yield* IdAllocator.IdAllocatorV2;
+      const moved: Array<string> = [];
+      const started = new Set<string>();
+      const movedOnStart = yield* Deferred.make<void>();
+      const harness = yield* makeWakeHarnessWithOptions({
+        backgroundTasks: (toolUseId) =>
+          Effect.gen(function* () {
+            moved.push(toolUseId);
+            if (!started.has(toolUseId)) return false;
+            yield* Deferred.succeed(movedOnStart, undefined);
+            return true;
+          }),
+      });
+      const backgroundCommands = harness.runtime.backgroundCommands;
+      assert.isDefined(backgroundCommands);
+      const itemId = (nativeItemId: string) =>
+        idAllocator.derive.turnItemFromProviderItem({
+          driver: ClaudeAdapterV2.CLAUDE_PROVIDER,
+          nativeItemId,
+        });
+      assert.deepEqual(yield* backgroundCommands({ providerThread: harness.providerThread }), {
+        backgrounded: 0,
+      });
+      yield* harness.runtime.startTurn(
+        makeClaudeTestTurnInput({
+          threadId: harness.threadId,
+          providerThread: harness.providerThread,
+          now: yield* DateTime.now,
+          attemptId: RunAttemptId.make("attempt-claude-background-commands"),
+          text: "Build and wait.",
+          attachments: [],
+        }),
+      );
+      yield* harness.offerAndWait(
+        claudeSdkFrame({
+          type: "assistant",
+          uuid: "00000000-0000-4000-8000-000000016001",
+          session_id: WAKE_NATIVE_SESSION,
+          parent_tool_use_id: null,
+          message: {
+            id: "msg_background_commands",
+            type: "message",
+            role: "assistant",
+            model: "claude-sonnet-4-6",
+            content: [
+              {
+                type: "tool_use",
+                id: "toolu-sleep",
+                name: "Bash",
+                input: { command: "sleep 600" },
+              },
+              { type: "tool_use", id: "toolu-build", name: "Bash", input: { command: "make" } },
+              { type: "tool_use", id: "toolu-read", name: "Read", input: { file_path: "/tmp/a" } },
+            ],
+          },
+        }),
+      );
+
+      assert.deepEqual(
+        yield* backgroundCommands({
+          providerThread: harness.providerThread,
+          itemId: itemId("toolu-read"),
+        }),
+        { backgrounded: 0 },
+      );
+      assert.deepEqual(
+        yield* backgroundCommands({
+          providerThread: harness.providerThread,
+          itemId: itemId("toolu-build"),
+        }),
+        { backgrounded: 1 },
+      );
+      assert.deepEqual(moved, ["toolu-build"]);
+
+      started.add("toolu-build");
+      yield* harness.offerAndWait(
+        claudeSdkFrame({
+          type: "system",
+          subtype: "task_started",
+          task_id: "task-build",
+          tool_use_id: "toolu-build",
+          description: "Build",
+          is_backgrounded: false,
+          task_type: "local_bash",
+          uuid: "00000000-0000-4000-8000-000000016003",
+          session_id: WAKE_NATIVE_SESSION,
+        }),
+      );
+      yield* Deferred.await(movedOnStart);
+      assert.deepEqual(moved, ["toolu-build", "toolu-build"]);
+
+      yield* harness.offerAndWait(
+        claudeSdkFrame({
+          type: "user",
+          uuid: "00000000-0000-4000-8000-000000016002",
+          session_id: WAKE_NATIVE_SESSION,
+          parent_tool_use_id: null,
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "toolu-build",
+                content: "Command running in background with ID: build-1",
+                is_error: false,
+              },
+            ],
+          },
+        }),
+      );
+      assert.deepEqual(yield* backgroundCommands({ providerThread: harness.providerThread }), {
+        backgrounded: 1,
+      });
+      assert.deepEqual(moved, ["toolu-build", "toolu-build", "toolu-sleep"]);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.mergeAll(
+          IdAllocator.layer,
+          McpProviderSessions.layer,
+          NodeServices.layer,
+          NodeCrypto.layer,
+        ),
+      ),
+    ),
+  );
+
   // regression: #23948 Claude holds a steer behind a running foreground tool
   // call and goes silent, so each steer stays pending until Claude starts it.
   it.effect("keeps a steer pending until Claude starts it", () =>

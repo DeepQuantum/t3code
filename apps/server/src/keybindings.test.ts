@@ -215,6 +215,7 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       Effect.gen(function* () {
         const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
         yield* writeKeybindingsConfig(keybindingsConfigPath, [
+          { key: "mod+b", command: "sidebar.toggle" },
           { key: "mod+shift+y", command: "terminal.toggle" },
           { key: "mod+shift+r", command: "script.run-tests.run" },
           { key: "mod+shift+b", command: "script.custom-panel.run" },
@@ -249,6 +250,15 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
             .filter((entry) => entry.shortcut.key === "b" && entry.shortcut.shiftKey)
             .map((entry) => entry.command),
           ["threadPanel.toggle", "script.custom-panel.run", "script.custom-composer.run"],
+        );
+        assert.deepEqual(
+          configState.keybindings
+            .filter(
+              (entry) =>
+                entry.shortcut.key === "b" && !entry.shortcut.shiftKey && !entry.shortcut.altKey,
+            )
+            .map((entry) => entry.command),
+          ["sidebar.toggle", "thread.backgroundCommands"],
         );
       }).pipe(Effect.provide(layerKeybindings())),
   );

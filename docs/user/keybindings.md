@@ -125,7 +125,8 @@ Join modifiers and a key with `+`, such as `mod+shift+d` or `ctrl+l`.
 
 Available context keys are `terminalFocus`, `terminalOpen`, `previewFocus`,
 `previewOpen`, `rightPanelOpen`, `modelPickerOpen`, `usagePageOpen`, `composerFocus`,
-`draftThreadRoute`, `turnRunning`, `editableFocus`, `isWeb`, and `isDesktop`.
+`draftThreadRoute`, `turnRunning`, `foregroundCommandRunning`, `editableFocus`, `isWeb`, and
+`isDesktop`.
 In a thread, `rightPanelOpen` is true while its right panel is open; the default
 `mod+t` uses it to open the panel's new-tab menu.
 `draftThreadRoute` is true on a draft thread, including a restored draft, until it is first sent.
@@ -170,6 +171,11 @@ a shortcut.
 
 `thread.stop` interrupts the running turn in the focused thread. It has no default
 shortcut; assign one in **Settings → Keybindings**.
+
+`thread.backgroundCommands` (`mod+b` by default) moves the commands the agent is waiting on
+to the background, like **Background** on a running command, so the turn continues while they
+run. Claude threads only. It shares `mod+b` with `sidebar.toggle` and wins only while
+`foregroundCommandRunning` is true, which is while such a command is running in the open thread.
 
 `thread.regenerateTitle` generates a new title for the focused thread, like
 **Regenerate title** in the thread menu. It has no default shortcut.

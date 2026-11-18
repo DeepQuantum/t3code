@@ -765,6 +765,10 @@ export interface ProviderAdapterV2SessionRuntime {
     readonly providerThread: OrchestrationV2ProviderThread;
     readonly taskId: string;
   }) => Effect.Effect<void, ProviderAdapterV2Error>;
+  readonly backgroundCommands?: (input: {
+    readonly providerThread: OrchestrationV2ProviderThread;
+    readonly itemId?: TurnItemId;
+  }) => Effect.Effect<{ readonly backgrounded: number }, ProviderAdapterV2Error>;
   /**
    * Marks or unmarks background tasks the agent will resume from, using the ids the agent saw.
    * Ids not running on this provider thread come back unmatched and change nothing.

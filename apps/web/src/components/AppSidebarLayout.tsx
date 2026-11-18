@@ -24,6 +24,7 @@ import {
   shortcutLabelForCommand,
 } from "../keybindings";
 import { isEditableFocused } from "../lib/editableFocus";
+import { isForegroundCommandRunning } from "../lib/foregroundCommand";
 import { isPreviewFocused } from "../lib/previewFocus";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { isModelPickerOpen } from "../modelPickerVisibility";
@@ -351,6 +352,7 @@ function SidebarControl({ showSidebar }: { readonly showSidebar: boolean }) {
         context: {
           terminalFocus: isTerminalFocused(),
           previewFocus: isPreviewFocused(),
+          foregroundCommandRunning: isForegroundCommandRunning(),
           ...readRoutePanelsOpen(router),
           usagePageOpen,
         },

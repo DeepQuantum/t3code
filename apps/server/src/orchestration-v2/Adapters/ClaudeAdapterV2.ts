@@ -5932,6 +5932,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
         const sessionSubagentTaskIdsByToolUseId = yield* Ref.make(new Map<string, string>());
         // Claude may never answer a background move; later steers must wait on the same request.
         const backgroundMovesByToolUseId = new Map<string, Fiber.Fiber<void>>();
+        const queuedCommandBackgrounds = new Set<string>();
         const subagentToolCalls = new Map<string, ActiveClaudeToolCall>();
         const pendingSubagentLaunchesByToolUseId = new Map<string, PendingClaudeSubagentLaunch>();
         const settledTurnByNativeThread = new Map<string, ActiveClaudeTurnContext>();
@@ -11171,6 +11172,22 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 );
                 taskOutputTails.set(tailedCall.nativeItemId, { fiber, stop });
               }
+              const queuedToolUseId = message.tool_use_id;
+              if (
+                queuedToolUseId !== undefined &&
+                message.is_backgrounded !== true &&
+                queuedCommandBackgrounds.delete(queuedToolUseId)
+              ) {
+                yield* liveQuery.query.backgroundTasks(queuedToolUseId).pipe(
+                  Effect.catch((cause) =>
+                    Effect.logWarning("orchestration-v2.claude-queued-command-background-failed", {
+                      toolUseId: queuedToolUseId,
+                      cause,
+                    }),
+                  ),
+                  Effect.forkIn(sessionScope),
+                );
+              }
               context.ignoredTaskIds.add(message.task_id);
               yield* applyBackgroundTaskRosterMessage({
                 nativeThreadId: liveQuery.nativeThreadId,
@@ -14139,6 +14156,48 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               ),
               Effect.onError(() => Effect.sync(() => workflowStopRequestedAt.delete(taskId))),
             );
+          }),
+          backgroundCommands: Effect.fn("ClaudeAdapterV2.backgroundCommands")(function* ({
+            providerThread,
+            itemId,
+          }) {
+            const live = yield* Ref.get(queryContext);
+            const turn = yield* Ref.get(activeTurn);
+            if (
+              live === null ||
+              live.stopping ||
+              turn === null ||
+              live.nativeThreadId !== providerThread.nativeThreadRef?.nativeId ||
+              turn.nativeThreadId !== live.nativeThreadId
+            ) {
+              return { backgrounded: 0 };
+            }
+            const commands = [...turn.toolCalls.values()].filter(
+              (call) =>
+                call.classification.itemType === "command_execution" &&
+                (itemId === undefined ||
+                  idAllocator.derive.turnItemFromProviderItem({
+                    driver: CLAUDE_PROVIDER,
+                    nativeItemId: call.nativeItemId,
+                  }) === itemId),
+            );
+            for (const queued of queuedCommandBackgrounds) {
+              if (!turn.toolCalls.has(queued)) queuedCommandBackgrounds.delete(queued);
+            }
+            for (const command of commands) {
+              const moved = yield* live.query.backgroundTasks(command.nativeItemId).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new ProviderAdapter.ProviderAdapterProtocolError({
+                      driver: CLAUDE_PROVIDER,
+                      detail: "Background command request failed",
+                      cause,
+                    }),
+                ),
+              );
+              if (!moved) queuedCommandBackgrounds.add(command.nativeItemId);
+            }
+            return { backgrounded: commands.length };
           }),
           awaitBackgroundTasks: Effect.fn("ClaudeAdapterV2.awaitBackgroundTasks")(
             function* ({ providerThread, taskIds, awaited }) {

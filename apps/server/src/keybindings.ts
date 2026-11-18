@@ -122,6 +122,14 @@ function keybindingShortcutContext(rule: KeybindingRule): string | null {
   return `${encoded}\u0000${rule.when ?? ""}`;
 }
 
+function hasSameShortcut(left: KeybindingRule, right: KeybindingRule): boolean {
+  const leftShortcut = parseKeybindingShortcut(left.key);
+  const rightShortcut = parseKeybindingShortcut(right.key);
+  if (!leftShortcut || !rightShortcut) return false;
+  const encoded = encodeShortcut(leftShortcut);
+  return encoded !== null && encoded === encodeShortcut(rightShortcut);
+}
+
 function hasSameShortcutContext(left: KeybindingRule, right: KeybindingRule): boolean {
   const leftContext = keybindingShortcutContext(left);
   const rightContext = keybindingShortcutContext(right);
@@ -570,7 +578,21 @@ const make = Effect.gen(function* () {
         });
       }
       if (defaultsToAppend.length > 0) {
-        yield* writeConfigAtomically([...defaultsToAppend, ...customConfig]);
+        const leading: KeybindingRule[] = [];
+        const nextConfig = [...customConfig];
+        for (const rule of defaultsToAppend) {
+          const narrowed = DEFAULT_KEYBINDINGS.slice(
+            0,
+            Math.max(0, DEFAULT_KEYBINDINGS.indexOf(rule)),
+          ).findLast((earlier) => earlier.when === undefined && hasSameShortcut(earlier, rule));
+          const narrowedIndex =
+            narrowed === undefined
+              ? -1
+              : nextConfig.findLastIndex((entry) => isSameKeybindingRule(entry, narrowed));
+          if (narrowedIndex === -1) leading.push(rule);
+          else nextConfig.splice(narrowedIndex + 1, 0, rule);
+        }
+        yield* writeConfigAtomically([...leading, ...nextConfig]);
       }
       const settledLateDefaults = pendingLateDefaults.filter(
         (late) => !skippedDefaults.includes(late.rule),

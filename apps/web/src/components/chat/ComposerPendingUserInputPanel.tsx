@@ -5,7 +5,10 @@ import { BackgroundThreadContext } from "./backgroundThread";
 import { useStableCallback } from "~/hooks/useStableCallback";
 import { type PendingUserInput } from "../../session-logic";
 import type { PendingUserInputDraftAnswer } from "@t3tools/client-runtime/state/pending-user-input";
-import { derivePendingUserInputProgress } from "../../pendingUserInput";
+import {
+  derivePendingUserInputProgress,
+  pendingUserInputQuestionEmbedsMedia,
+} from "../../pendingUserInput";
 import { CheckboxMark } from "../ui/checkbox";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import { Kbd } from "../ui/kbd";
@@ -192,6 +195,9 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
       .join(" "),
   );
   const questionTextAlign = promptDirection === "rtl" ? "text-right" : "text-left";
+  const activeQuestionDetail = prompt.questions[progress.questionIndex];
+  const embedsMedia =
+    activeQuestionDetail !== undefined && pendingUserInputQuestionEmbedsMedia(activeQuestionDetail);
 
   return (
     <Collapsible
@@ -258,8 +264,8 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
         </ComposerBanner.Actions>
       </CollapsibleTrigger>
       <CollapsiblePanel>
-        <ComposerBanner.Scroll>
-          <ComposerBanner.Body className="ps-6 pe-4 pb-1 wrap-anywhere sm:ps-5.5">
+        <ComposerBanner.Scroll className={embedsMedia ? "max-h-[min(56rem,70dvh)]" : undefined}>
+          <ComposerBanner.Body className="ps-6 pe-4 pb-1 wrap-anywhere [--chat-markdown-media-size:20rem] sm:ps-5.5">
             <ChatMarkdown
               text={activeQuestion.question}
               cwd={cwd}
@@ -271,6 +277,7 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
             <div className="-ms-2 mt-1.5 sm:-ms-1.5">
               {activeQuestion.options.map((option, index) => {
                 const optionValue = option.value ?? option.label;
+                const preview = activeQuestionDetail?.options[index]?.preview?.trim();
                 const isOptimisticallySelected =
                   optimisticSingleSelect?.questionId === activeQuestion.id &&
                   optimisticSingleSelect.optionValue === optionValue;
@@ -313,29 +320,39 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
                     ) : null}
                   </>
                 );
-                // The preview sits outside the button: it can hold links, and a click on a single-select option advances.
+                const optionButton = (
+                  <button
+                    key={`${activeQuestion.id}:${optionValue}`}
+                    type="button"
+                    aria-pressed={isSelected}
+                    disabled={disabled || isResponding}
+                    onClick={() => {
+                      handleOptionSelection(activeQuestion.id, optionValue);
+                    }}
+                    className={cn(className, preview && "min-w-0 sm:flex-1 sm:self-stretch")}
+                  >
+                    {content}
+                  </button>
+                );
+                if (!preview) return optionButton;
                 return (
-                  <div key={`${activeQuestion.id}:${optionValue}`}>
-                    <button
-                      type="button"
-                      aria-pressed={isSelected}
-                      disabled={disabled || isResponding}
-                      onClick={() => {
-                        handleOptionSelection(activeQuestion.id, optionValue);
-                      }}
-                      className={className}
-                    >
-                      {content}
-                    </button>
-                    {option.preview ? (
-                      <ChatMarkdown
-                        text={option.preview}
-                        cwd={cwd}
-                        threadRef={threadRef}
-                        lineBreaks
-                        className="ps-9 pe-2 pb-1.5 text-xs text-foreground/70 sm:ps-8"
-                      />
-                    ) : null}
+                  <div
+                    key={`${activeQuestion.id}:${optionValue}`}
+                    className={cn(
+                      "flex flex-col gap-1 rounded-md py-1 sm:flex-row sm:items-start sm:gap-3",
+                      isSelected && "bg-muted/40",
+                    )}
+                  >
+                    <ChatMarkdown
+                      text={preview}
+                      cwd={cwd}
+                      threadRef={threadRef}
+                      className={cn(
+                        "w-full shrink-0 ps-2 text-foreground/85 sm:w-80 sm:ps-1.5",
+                        questionTextAlign,
+                      )}
+                    />
+                    {optionButton}
                   </div>
                 );
               })}

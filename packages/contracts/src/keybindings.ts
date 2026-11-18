@@ -36,6 +36,7 @@ export type ModelPickerJumpKeybindingCommand =
 
 const THREAD_KEYBINDING_COMMANDS = [
   "thread.stop",
+  "thread.backgroundCommands",
   "thread.steerQueuedMessage",
   "thread.editQueuedMessage",
   "thread.previous",

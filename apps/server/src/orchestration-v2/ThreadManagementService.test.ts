@@ -15,6 +15,7 @@ import {
   ProviderInstanceId,
   RunId,
   ThreadId,
+  TurnItemId,
 } from "@t3tools/contracts";
 import * as Deferred from "effect/Deferred";
 import * as DateTime from "effect/DateTime";
@@ -681,6 +682,84 @@ it.effect.each([
         });
         expect(calls).toEqual([]);
       }
+    }),
+);
+
+it.effect.each([
+  { state: "moved", failure: undefined },
+  { state: "nothing-waiting", failure: "not-running" },
+  { state: "no-session", failure: "unavailable" },
+  { state: "unsupported-runtime", failure: "unsupported" },
+] as const)(
+  "moves the active provider thread's commands to the background with state $state",
+  ({ state, failure }) =>
+    Effect.gen(function* () {
+      const threadId = ThreadId.make("thread:background-commands");
+      const providerThreadId = ProviderThreadId.make("provider-thread:background-commands");
+      const providerSessionId = ProviderSessionId.make("provider-session:background-commands");
+      const itemId = TurnItemId.make("turn-item:background-commands");
+      const providerThread = {
+        id: providerThreadId,
+        providerSessionId,
+        appThreadId: threadId,
+      } as unknown as OrchestrationV2ProviderThread;
+      const calls: Array<{ providerThreadId: ProviderThreadId; itemId: TurnItemId | undefined }> =
+        [];
+      const runtime = {
+        providerSessionId,
+        ...(state === "unsupported-runtime"
+          ? {}
+          : {
+              backgroundCommands: (input: {
+                readonly providerThread: OrchestrationV2ProviderThread;
+                readonly itemId?: TurnItemId;
+              }) =>
+                Effect.sync(() => {
+                  calls.push({ providerThreadId: input.providerThread.id, itemId: input.itemId });
+                  return { backgrounded: state === "moved" ? 1 : 0 };
+                }),
+            }),
+      } as unknown as ProviderAdapter.ProviderAdapterV2SessionRuntime;
+      const layerTest = ThreadManagementService.layer.pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.mock(Orchestrator.OrchestratorV2)({
+              getThreadRecords: () =>
+                Effect.succeed({
+                  thread: {
+                    id: threadId,
+                    deletedAt: null,
+                    activeProviderThreadId: providerThreadId,
+                  },
+                  providerThreads: [providerThread],
+                } as unknown as OrchestrationV2ThreadProjection),
+            }),
+            Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({
+              get: () =>
+                Effect.succeed(state === "no-session" ? Option.none() : Option.some(runtime)),
+            }),
+          ),
+        ),
+        Layer.provide(ServerSettings.layerTest()),
+        Layer.provide(layerReceiptsTest),
+      );
+      const result = yield* Effect.gen(function* () {
+        const service = yield* ThreadManagementService.ThreadManagementService;
+        return yield* service.backgroundCommands({ threadId, itemId }).pipe(Effect.result);
+      }).pipe(Effect.provide(Layer.merge(layerTest, ThreadCommandExecutor.layer)));
+
+      if (failure === undefined) {
+        expect(result).toMatchObject({ _tag: "Success" });
+      } else {
+        expect(result).toMatchObject({
+          failure: { _tag: "OrchestrationV2BackgroundCommandsError", reason: failure },
+        });
+      }
+      expect(calls).toEqual(
+        state === "no-session" || state === "unsupported-runtime"
+          ? []
+          : [{ providerThreadId, itemId }],
+      );
     }),
 );
 

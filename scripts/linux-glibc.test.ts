@@ -3,7 +3,7 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import afterPack from "./linux-after-pack.ts";
 import { parseGlibcNeeds, scanGlibcNeeds } from "./linux-glibc.ts";
@@ -115,9 +115,12 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("packaged ELF s
         await expect(
           afterPack({ appOutDir: app, electronPlatformName: "linux", targets: [deb] }),
         ).rejects.toThrow(/helper.*GLIBC_2\.40.*2\.39/s);
+        vi.stubEnv("T3CODE_DESKTOP_GLIBC_CEILING", "2.40");
+        expect(await scanGlibcNeeds(app)).toEqual({ minimum: "2.40", elfCount: 3 });
         await NodeFSP.writeFile(NodePath.join(native, "helper"), Buffer.from("\x7fELFbroken"));
         await expect(scanGlibcNeeds(app)).rejects.toThrow(/helper/);
       } finally {
+        vi.unstubAllEnvs();
         await NodeFSP.rm(root, { recursive: true, force: true });
       }
     },

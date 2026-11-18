@@ -212,6 +212,15 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
   const ctx = use(TimelineRowCtx);
   const { threadRef, onImageExpand, timestampFormat } = ctx;
   const { retryableWorkspacePreparationRunIds, onRetryWorkspacePreparation } = ctx;
+  const { onBackgroundCommand } = ctx;
+  const commandItem = workEntry.projectedItem?.item;
+  const backgroundableCommandId =
+    commandItem?.type === "command_execution" &&
+    commandItem.status === "running" &&
+    commandItem.runId !== null
+      ? commandItem.id
+      : null;
+  const [backgroundRequested, setBackgroundRequested] = useState(false);
   const threadTarget = useThreadReadTarget(workEntry, ctx.activeThreadEnvironmentId);
   const createdThread =
     workEntry.projectedItem?.item.type === "thread_created"
@@ -526,6 +535,22 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
             >
               Open chat
             </button>
+          ) : null}
+          {backgroundableCommandId !== null && onBackgroundCommand ? (
+            <InlineButton
+              aria-label="Run command in background"
+              disabled={backgroundRequested}
+              onClick={(event) => {
+                event.stopPropagation();
+                setBackgroundRequested(true);
+                void onBackgroundCommand(backgroundableCommandId).then((accepted) => {
+                  if (!accepted) setBackgroundRequested(false);
+                });
+              }}
+              onKeyDown={stopRowToggle}
+            >
+              Background
+            </InlineButton>
           ) : null}
           {notifiedSubagentThreadId ? (
             <InlineButton

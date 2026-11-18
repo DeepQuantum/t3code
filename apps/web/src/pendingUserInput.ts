@@ -1,4 +1,5 @@
 import type {
+  OrchestrationV2UserInputQuestion,
   PreviewAnnotationContextRecord,
   PreviewAnnotationPayload,
   ReviewCommentContextRecord,
@@ -86,6 +87,16 @@ export interface PendingUserInputProgress<Q extends UserInputQuestion = UserInpu
   isLastQuestion: boolean;
   isComplete: boolean;
   canAdvance: boolean;
+}
+
+const MARKDOWN_EMBED_PATTERN = /!\[[^\]]*\]\(/;
+
+export function pendingUserInputQuestionEmbedsMedia(
+  question: Pick<OrchestrationV2UserInputQuestion, "question" | "options">,
+): boolean {
+  return [question.question, ...question.options.map((option) => option.preview ?? "")].some(
+    (text) => MARKDOWN_EMBED_PATTERN.test(text),
+  );
 }
 
 const DISPLACED_ANSWER_SEPARATOR = "\n\n";

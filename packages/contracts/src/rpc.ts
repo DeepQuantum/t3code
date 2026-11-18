@@ -227,6 +227,7 @@ import {
   ORCHESTRATION_V2_WS_METHODS,
   OrchestrationGetWorkflowScriptError,
   OrchestrationV2GetNativeChildWorkError,
+  OrchestrationV2BackgroundCommandsError,
   OrchestrationV2StopWorkflowError,
   OrchestrationV2ForceStopThreadError,
   OrchestrationV2DispatchCommandError,
@@ -1966,6 +1967,15 @@ const WsOrchestrationV2StopWorkflowRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.st
   error: Schema.Union([OrchestrationV2StopWorkflowError, EnvironmentAuthorizationError]),
 });
 
+const WsOrchestrationV2BackgroundCommandsRpc = Rpc.make(
+  ORCHESTRATION_V2_WS_METHODS.backgroundCommands,
+  {
+    payload: OrchestrationV2RpcSchemas.backgroundCommands.input,
+    success: OrchestrationV2RpcSchemas.backgroundCommands.output,
+    error: Schema.Union([OrchestrationV2BackgroundCommandsError, EnvironmentAuthorizationError]),
+  },
+);
+
 const WsOrchestrationV2ForceStopThreadRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.forceStopThread, {
   payload: OrchestrationV2RpcSchemas.forceStopThread.input,
   success: OrchestrationV2RpcSchemas.forceStopThread.output,
@@ -2371,6 +2381,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsOrchestrationV2GetWorkflowScriptRpc,
   WsOrchestrationV2GetNativeChildWorkRpc,
   WsOrchestrationV2StopWorkflowRpc,
+  WsOrchestrationV2BackgroundCommandsRpc,
   WsOrchestrationV2ForceStopThreadRpc,
   WsOrchestrationV2GetTurnItemRpc,
   WsOrchestrationV2GetTurnDiffRpc,

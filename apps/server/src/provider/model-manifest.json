@@ -126,7 +126,13 @@
       "gpt-daybreak-blue-latest",
       "gpt-daybreak-red-latest"
     ],
-    "claudeAgent": ["claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
+    "claudeAgent": [
+      "claude-mythos-5-2",
+      "claude-fable-5-2",
+      "claude-opus-5-5",
+      "claude-sonnet-5-5",
+      "claude-haiku-5-5"
+    ],
     "antigravity": [
       "gemini-4-carbon",
       "gemini-4-argon",
@@ -749,6 +755,13 @@
         }
       },
       "models": [
+        {
+          "slug": "claude-mythos-5-2",
+          "name": "Claude Mythos 5.2",
+          "aliases": ["mythos", "mythos-5.2", "claude-mythos-5.2"],
+          "status": "current",
+          "profile": "opus-5-5"
+        },
         {
           "slug": "claude-opus-5-5",
           "name": "Claude Opus 5.5",

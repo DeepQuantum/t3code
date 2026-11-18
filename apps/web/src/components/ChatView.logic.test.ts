@@ -16,6 +16,7 @@ import {
   snapshotComposerSend,
   withMessageContext,
   deriveAvailableRevertTurnCounts,
+  deriveForegroundCommandRunning,
   deriveThreadPendingBackgroundTasks,
 } from "./ChatView.logic";
 import {
@@ -1584,6 +1585,30 @@ describe("deriveThreadPendingBackgroundTasks", () => {
       ),
     ).toEqual([{ taskId: "task-1", kind: "background_task" }]);
   });
+
+  it.each([
+    { name: "a live Claude run's running command", expected: true },
+    { name: "another provider", driver: "codex", expected: false },
+    { name: "a command that already returned", itemStatus: "completed", expected: false },
+    { name: "a command left by an ended run", runStatus: "interrupted", expected: false },
+    { name: "a running tool that is not a command", type: "dynamic_tool", expected: false },
+  ])(
+    "reports a foreground command to move to the background for $name: $expected",
+    ({ driver = "claudeAgent", itemStatus = "running", runStatus = "running", type, expected }) => {
+      expect(
+        deriveForegroundCommandRunning(
+          projection({
+            thread: { ...base.thread, activeProviderThreadId: "provider-thread-1" },
+            providerThreads: [{ id: "provider-thread-1", driver }],
+            runs: [run(1, runStatus)],
+            turnItems: [
+              { ...item(1, type ?? "command_execution", "shell-1", "sleep"), status: itemStatus },
+            ],
+          }),
+        ),
+      ).toBe(expected);
+    },
+  );
 });
 
 describe("prepareRevertedMessageAttachments", () => {

@@ -13,7 +13,9 @@ import {
 } from "@t3tools/client-runtime/state/thread-activity-announcement";
 import {
   deriveAvailableRevertTurnCounts,
+  deriveForegroundCommandRunning,
   deriveThreadPendingBackgroundTasks,
+  providerCanBackgroundCommands,
   presentThreadShellFromProjection,
 } from "./ChatView.logic";
 import { usePullRequestDraftThread } from "./chat/usePullRequestDraftThread";
@@ -74,6 +76,7 @@ import {
   type ServerProvider,
   type ScopedThreadRef,
   type ThreadId,
+  type TurnItemId,
   ProviderInteractionMode,
   resolveIdleCompaction,
   RuntimeMode,
@@ -201,8 +204,9 @@ import { BranchToolbar, type BranchToolbarHandle } from "./BranchToolbar";
 import { ComposerContextPermissions } from "./ComposerContextPermissions";
 import { makeWorkspaceFileDropHandlers } from "./chat/workspaceFileDrop";
 import { isEditableFocused } from "../lib/editableFocus";
+import { registerForegroundCommand } from "../lib/foregroundCommand";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
-import { shortcutLabelForCommand } from "../keybindings";
+import { isRichTextBoldShortcut, shortcutLabelForCommand } from "../keybindings";
 import { cn } from "~/lib/utils";
 import { COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS } from "~/workspaceTitlebar";
 import { toastManager } from "./ui/toast";
@@ -256,6 +260,7 @@ import { useEnvironmentScope } from "~/state/session";
 import { primaryServerKeybindingsAtom, serverEnvironment } from "../state/server";
 import { hostEnvironmentIdAtom } from "../state/primaryEnvironment";
 import { threadEnvironment } from "../state/threads";
+import { orchestrationEnvironment } from "../state/orchestration";
 import {
   resolveProviderSkillsForCwd,
   resolveProvidersForCwd,
@@ -489,6 +494,13 @@ export default function ChatView(props: ChatViewProps) {
     label: "load earlier thread history",
     reportFailure: false,
   });
+  const backgroundThreadCommands = useAtomCommand(orchestrationEnvironment.backgroundCommands, {
+    label: "background commands",
+    reportFailure: false,
+  });
+  const canBackgroundCommands = useAtomValue(
+    orchestrationEnvironment.backgroundCommands.permissionAtom(environmentId),
+  );
   const { environments } = useEnvironments();
   const providersByEnvironment = useEnvironmentProviders();
   const primaryEnvironment = usePrimaryEnvironment();
@@ -1877,6 +1889,33 @@ export default function ChatView(props: ChatViewProps) {
     }
   };
   const onInterruptStable = useStableCallback(onInterrupt);
+  const backgroundCommandsOffered =
+    canBackgroundCommands && providerCanBackgroundCommands(serverProjection);
+  const foregroundCommandRunning =
+    backgroundCommandsOffered && deriveForegroundCommandRunning(serverProjection);
+  const onBackgroundCommandsStable = useStableCallback(async (itemId?: TurnItemId) => {
+    if (!activeThread) return false;
+    const result = await backgroundThreadCommands({
+      environmentId,
+      input: { threadId: activeThread.id, ...(itemId === undefined ? {} : { itemId }) },
+    });
+    if (result._tag !== "Failure") return true;
+    if (!isAtomCommandInterrupted(result)) {
+      const error = squashAtomCommandFailure(result);
+      setThreadError(
+        activeThread.id,
+        error instanceof Error ? error.message : "Failed to move the command to the background.",
+      );
+    }
+    return false;
+  });
+  const foregroundCommandShortcutActive =
+    foregroundCommandRunning && !embedded && !backgroundThread;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- tells window shortcut listeners outside this chat that its turn waits on a command
+  useEffect(
+    () => (foregroundCommandShortcutActive ? registerForegroundCommand() : undefined),
+    [foregroundCommandShortcutActive],
+  );
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- window listener for the desktop snapshot event that focuses the composer
   useEffect(
     () => (embedded ? undefined : subscribeSnapShotComposerFocus(focusComposerStable)),
@@ -2728,6 +2767,7 @@ export default function ChatView(props: ChatViewProps) {
       isInSideChatPane(document.activeElement) === embedded,
     draftThreadRoute: routeKind === "draft",
     turnRunning: phase === "running" || phase === "connecting",
+    foregroundCommandRunning: foregroundCommandShortcutActive,
     composerRequiresModifier: composerRequiresModifier(settings.sendShortcut, promptRef.current),
     isWeb: !isElectron,
     isDesktop: isElectron,
@@ -2789,6 +2829,16 @@ export default function ChatView(props: ChatViewProps) {
       "thread.stop": ({ event }) => {
         if (!canInterruptRunningThread) return false;
         if (!event.repeat) void onInterruptStable();
+      },
+      "thread.backgroundCommands": ({ event }) => {
+        if (
+          !foregroundCommandShortcutActive ||
+          (isRichTextBoldShortcut(event, window.getSelection()) &&
+            event.target instanceof HTMLElement &&
+            event.target.closest('[data-composer-rich-text="true"]') !== null)
+        )
+          return false;
+        if (!event.repeat) void onBackgroundCommandsStable();
       },
     },
     fallback: (command) => {
@@ -3474,6 +3524,9 @@ export default function ChatView(props: ChatViewProps) {
                   worktreeSetup={worktreeSetup}
                   onCancelWorktreeSetup={onCancelWorktreeSetupStable}
                   retryableWorkspacePreparationRunIds={retryableWorkspacePreparationRunIds}
+                  {...(backgroundCommandsOffered
+                    ? { onBackgroundCommand: onBackgroundCommandsStable }
+                    : {})}
                   onRetryWorkspacePreparation={onRetryWorkspacePreparationStable}
                   {...(draftId
                     ? { onWorktreeSetupWorkLocally: onWorktreeSetupWorkLocallyStable }

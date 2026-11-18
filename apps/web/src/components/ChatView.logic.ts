@@ -1503,6 +1503,29 @@ export function presentThreadShellFromProjection(
 // Excludes `waiting`: that is post-terminal checkpoint drain, so its agent turn is over.
 const LIVE_RUN_STATUSES = new Set(["queued", "preparing", "starting", "running"]);
 
+export function providerCanBackgroundCommands(projection: ThreadStructure | null): boolean {
+  if (projection === null) return false;
+  return (
+    projection.providerThreads.find(
+      (thread) => thread.id === projection.thread.activeProviderThreadId,
+    )?.driver === "claudeAgent"
+  );
+}
+
+export function deriveForegroundCommandRunning(projection: ThreadStructure | null): boolean {
+  if (projection === null || !providerCanBackgroundCommands(projection)) return false;
+  const liveRunIds = new Set(
+    projection.runs.filter((run) => LIVE_RUN_STATUSES.has(run.status)).map((run) => run.id),
+  );
+  return projection.turnItems.some(
+    (item) =>
+      item.type === "command_execution" &&
+      item.status === "running" &&
+      item.runId !== null &&
+      liveRunIds.has(item.runId),
+  );
+}
+
 /**
  * Background work the provider still runs after an earlier run ended. It
  * stays listed while a later run is live; that live run's own items are its

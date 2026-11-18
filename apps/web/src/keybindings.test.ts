@@ -248,6 +248,22 @@ describe("settle thread shortcut", () => {
   });
 });
 
+describe("background commands shortcut", () => {
+  it.each([
+    { context: { foregroundCommandRunning: true }, command: "thread.backgroundCommands" },
+    { context: {}, command: "sidebar.toggle" },
+    { context: { foregroundCommandRunning: true, terminalFocus: true }, command: "sidebar.toggle" },
+  ])("shares the sidebar chord only while a command is in the foreground", (row) => {
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "b", ctrlKey: true }), DEFAULT_RESOLVED_KEYBINDINGS, {
+        platform: "Linux",
+        context: row.context,
+      }),
+      row.command,
+    );
+  });
+});
+
 describe("thread undo shortcut", () => {
   it("leaves native undo alone inside text fields and terminals", () => {
     assert.isNull(

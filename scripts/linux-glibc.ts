@@ -39,6 +39,7 @@ export async function scanGlibcNeeds(appOutDir: string): Promise<{
   minimum: string;
   elfCount: number;
 }> {
+  const ceiling = process.env.T3CODE_DESKTOP_GLIBC_CEILING?.trim() || GLIBC_BUILD_CEILING;
   let minimum: string | undefined;
   let elfCount = 0;
   async function walk(directory: string): Promise<void> {
@@ -68,10 +69,8 @@ export async function scanGlibcNeeds(appOutDir: string): Promise<{
         });
         if (stderr.trim()) throw new Error(stderr.trim());
         const required = parseGlibcNeeds(stdout);
-        if (required && compareVersions(required, GLIBC_BUILD_CEILING) > 0) {
-          throw new Error(
-            `requires GLIBC_${required}, exceeding build ceiling ${GLIBC_BUILD_CEILING}`,
-          );
+        if (required && compareVersions(required, ceiling) > 0) {
+          throw new Error(`requires GLIBC_${required}, exceeding build ceiling ${ceiling}`);
         }
         if (required && (!minimum || compareVersions(required, minimum) > 0)) minimum = required;
       } catch (cause) {
@@ -85,7 +84,7 @@ export async function scanGlibcNeeds(appOutDir: string): Promise<{
   await walk(appOutDir);
   if (elfCount === 0 || !minimum) throw new Error(`No glibc requirements found in ${appOutDir}`);
   console.log(
-    `[linux-glibc] ${elfCount} ELF files; requires glibc >= ${minimum}; build ceiling ${GLIBC_BUILD_CEILING}`,
+    `[linux-glibc] ${elfCount} ELF files; requires glibc >= ${minimum}; build ceiling ${ceiling}`,
   );
   return { minimum, elfCount };
 }
